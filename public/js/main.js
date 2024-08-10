@@ -5,7 +5,6 @@ document.getElementById('visualizer').appendChild(canvas);
 
 const gl = canvas.getContext('webgl');
 
-// Vertex and fragment shader sources with enhancements
 const vertexShaderSource = `
   attribute vec4 aVertexPosition;
   varying vec2 vTextureCoord;
@@ -21,12 +20,13 @@ const fragmentShaderSource = `
   uniform float uTime;
   uniform vec4 uColor;
   void main(void) {
-    float brightness = 0.5 + 0.5 * sin(uTime + vTextureCoord.x * 10.0);
-    gl_FragColor = uColor * brightness;
+    float brightness = 0.5 + 0.5 * sin(uTime * 10.0 + vTextureCoord.x * 10.0);
+    float beatEffect = sin(uTime * 2.0) * 0.5 + 0.5;
+    vec3 color = mix(uColor.rgb * brightness, vec3(beatEffect, 0.0, 1.0 - beatEffect), vTextureCoord.y);
+    gl_FragColor = vec4(color, 1.0);
   }
 `;
 
-// Compile shaders
 function compileShader(gl, source, type) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
@@ -42,7 +42,6 @@ function compileShader(gl, source, type) {
 const vertexShader = compileShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
 const fragmentShader = compileShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
 
-// Create and link the shader program
 const shaderProgram = gl.createProgram();
 gl.attachShader(shaderProgram, vertexShader);
 gl.attachShader(shaderProgram, fragmentShader);
@@ -52,7 +51,6 @@ if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
     console.error('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
 }
 
-// Initialize buffers and attributes
 const vertices = new Float32Array([
     -0.5, 0.5,
     0.5, 0.5,
@@ -86,6 +84,14 @@ async function processMusic(filePath) {
 }
 
 function render() {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    analyser.getByteFrequencyData(dataArray);
+
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -93,7 +99,10 @@ function render() {
 
     const time = performance.now() / 1000.0;
     gl.uniform1f(uTime, time);
-    gl.uniform4f(uColor, features.rms, Math.random(), Math.random(), 1.0); // Modifying color based on RMS
+
+    let avgFrequency = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+    avgFrequency /= 255; // Normalize
+    gl.uniform4f(uColor, avgFrequency, Math.random(), 1.0 - avgFrequency, 1.0);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -133,7 +142,6 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         console.error('Error uploading file:', error);
     }
 });
-
 
 document.getElementById('playPauseBtn').addEventListener('click', () => {
     if (audioElement.paused) {

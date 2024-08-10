@@ -5,19 +5,24 @@ document.getElementById('visualizer').appendChild(canvas);
 
 const gl = canvas.getContext('webgl');
 
-// Define basic vertex and fragment shaders
+// Vertex and fragment shader sources with enhancements
 const vertexShaderSource = `
   attribute vec4 aVertexPosition;
+  varying vec2 vTextureCoord;
   void main(void) {
     gl_Position = aVertexPosition;
+    vTextureCoord = aVertexPosition.xy * 0.5 + 0.5;
   }
 `;
 
 const fragmentShaderSource = `
   precision mediump float;
+  varying vec2 vTextureCoord;
+  uniform float uTime;
   uniform vec4 uColor;
   void main(void) {
-    gl_FragColor = uColor;
+    float brightness = 0.5 + 0.5 * sin(uTime + vTextureCoord.x * 10.0);
+    gl_FragColor = uColor * brightness;
   }
 `;
 
@@ -64,19 +69,76 @@ gl.enableVertexAttribArray(aVertexPosition);
 gl.vertexAttribPointer(aVertexPosition, 2, gl.FLOAT, false, 0, 0);
 
 const uColor = gl.getUniformLocation(shaderProgram, 'uColor');
+const uTime = gl.getUniformLocation(shaderProgram, 'uTime');
 
-// Function to render the scene
+let audioElement;
+let features;
+
+async function processMusic(filePath) {
+    features = await analyzeMusic(filePath);
+    console.log('Music features:', features);
+
+    audioElement = new Audio();
+    audioElement.src = filePath;
+    audioElement.play();
+
+    audioElement.addEventListener('play', render);
+}
+
 function render() {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.useProgram(shaderProgram);
-    gl.uniform4f(uColor, Math.random(), Math.random(), Math.random(), 1.0);
+
+    const time = performance.now() / 1000.0;
+    gl.uniform1f(uTime, time);
+    gl.uniform4f(uColor, features.rms, Math.random(), Math.random(), 1.0); // Modifying color based on RMS
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     requestAnimationFrame(render);
 }
 
-// Start rendering
-render();
+document.getElementById('uploadForm').addEventListener('submit', async function(event) {
+    event.preventDefault();
+
+    const fileInput = document.getElementById('musicFile');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        console.error('No file selected.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('musicFile', file);
+
+    console.log('Uploading file:', file);
+
+    try {
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        if (data.filePath) {
+            console.log('File uploaded successfully:', data.filePath);
+            processMusic(data.filePath);
+        } else {
+            console.error('Upload failed.');
+        }
+    } catch (error) {
+        console.error('Error uploading file:', error);
+    }
+});
+
+
+document.getElementById('playPauseBtn').addEventListener('click', () => {
+    if (audioElement.paused) {
+        audioElement.play();
+    } else {
+        audioElement.pause();
+    }
+});

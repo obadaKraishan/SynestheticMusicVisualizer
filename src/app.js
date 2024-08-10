@@ -5,11 +5,11 @@ const routes = require('./routes');
 
 const app = express();
 
-// Set up static file serving
-app.use(express.static(path.join(__dirname, '../public')));
+// Set up static file serving for the uploads directory
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Set up file upload destination
-const upload = multer({ dest: 'uploads/' });
+// Set up static file serving for the public directory
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Use routes
 app.use('/', routes);

@@ -4,8 +4,11 @@ canvas.height = document.getElementById('visualizer').clientHeight;
 document.getElementById('visualizer').appendChild(canvas);
 
 const gl = canvas.getContext('webgl');
+if (!gl) {
+    console.error('Unable to initialize WebGL. Your browser or machine may not support it.');
+    alert('WebGL not supported');
+}
 
-// Vertex and fragment shader sources with enhancements
 const vertexShaderSource = `
   attribute vec4 aVertexPosition;
   varying vec2 vTextureCoord;
@@ -52,6 +55,12 @@ gl.linkProgram(shaderProgram);
 if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
     console.error('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
 }
+
+// Verify that everything is correctly set up before rendering
+gl.useProgram(shaderProgram);
+gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+gl.clearColor(0.0, 0.0, 0.0, 1.0);
+gl.clear(gl.COLOR_BUFFER_BIT);
 
 const vertices = new Float32Array([
     -0.5, 0.5,
@@ -121,7 +130,6 @@ async function processMusic(filePath) {
 function render() {
     updateParticles();
 
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.useProgram(shaderProgram);

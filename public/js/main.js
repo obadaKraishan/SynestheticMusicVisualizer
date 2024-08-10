@@ -5,6 +5,7 @@ document.getElementById('visualizer').appendChild(canvas);
 
 const gl = canvas.getContext('webgl');
 
+// Vertex and fragment shader sources with enhancements
 const vertexShaderSource = `
   attribute vec4 aVertexPosition;
   varying vec2 vTextureCoord;
@@ -20,9 +21,10 @@ const fragmentShaderSource = `
   uniform float uTime;
   uniform vec4 uColor;
   void main(void) {
-    float brightness = 0.5 + 0.5 * sin(uTime * 10.0 + vTextureCoord.x * 10.0);
-    float beatEffect = sin(uTime * 2.0) * 0.5 + 0.5;
-    vec3 color = mix(uColor.rgb * brightness, vec3(beatEffect, 0.0, 1.0 - beatEffect), vTextureCoord.y);
+    float wave = sin(vTextureCoord.x * 10.0 + uTime * 2.0) * 0.5 + 0.5;
+    float ripple = sin(distance(vTextureCoord, vec2(0.5, 0.5)) * 20.0 - uTime * 3.0);
+    float brightness = wave * ripple;
+    vec3 color = uColor.rgb * brightness;
     gl_FragColor = vec4(color, 1.0);
   }
 `;
@@ -71,6 +73,39 @@ const uTime = gl.getUniformLocation(shaderProgram, 'uTime');
 
 let audioElement;
 let features;
+let particles = [];
+
+function createParticle() {
+    return {
+        position: [Math.random() - 0.5, Math.random() - 0.5],
+        velocity: [Math.random() * 0.02 - 0.01, Math.random() * 0.02 - 0.01],
+        life: Math.random() * 2.0
+    };
+}
+
+function updateParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.position[0] += p.velocity[0];
+        p.position[1] += p.velocity[1];
+        p.life -= 0.1;
+
+        if (p.life <= 0) {
+            particles.splice(i, 1);
+        }
+    }
+
+    while (particles.length < 100) {
+        particles.push(createParticle());
+    }
+}
+
+function renderParticles(gl) {
+    particles.forEach(p => {
+        gl.uniform2f(gl.getUniformLocation(shaderProgram, 'uParticlePos'), p.position[0], p.position[1]);
+        gl.drawArrays(gl.POINTS, 0, 1);
+    });
+}
 
 async function processMusic(filePath) {
     features = await analyzeMusic(filePath);
@@ -84,13 +119,7 @@ async function processMusic(filePath) {
 }
 
 function render() {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-
-    analyser.getByteFrequencyData(dataArray);
+    updateParticles();
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -100,11 +129,7 @@ function render() {
     const time = performance.now() / 1000.0;
     gl.uniform1f(uTime, time);
 
-    let avgFrequency = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-    avgFrequency /= 255; // Normalize
-    gl.uniform4f(uColor, avgFrequency, Math.random(), 1.0 - avgFrequency, 1.0);
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    renderParticles(gl);
 
     requestAnimationFrame(render);
 }
@@ -149,4 +174,8 @@ document.getElementById('playPauseBtn').addEventListener('click', () => {
     } else {
         audioElement.pause();
     }
+});
+
+document.getElementById('visualMode').addEventListener('change', (event) => {
+    currentMode = event.target.value;
 });

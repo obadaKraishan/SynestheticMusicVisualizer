@@ -19,6 +19,12 @@ exports.uploadMusic = (req, res) => {
             return res.status(400).send('No file uploaded.');
         }
 
+        // Validate file type
+        const mimeType = req.file.mimetype;
+        if (mimeType !== 'audio/mpeg' && mimeType !== 'audio/mp3') {
+            return res.status(400).send('Invalid file type. Please upload an MP3 file.');
+        }
+
         console.log('File uploaded:', req.file);
 
         // Respond with the file path for further processing

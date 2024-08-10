@@ -9,9 +9,22 @@ body {
     background-color: #333;
     border-radius: 5px;
     margin-top: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+}
+
+/* Media query for smaller screens */
+@media (max-width: 768px) {
+    #visualizer {
+        height: 250px;
+    }
+
+    #controls {
+        text-align: center;
+    }
+
+    #playPauseBtn, #visualMode {
+        width: 100%;
+        margin-bottom: 10px;
+    }
 }
 
 #controls {
@@ -23,4 +36,11 @@ body {
 
 #playPauseBtn, #visualMode {
     width: 48%;
+}
+
+#loadingSpinner {
+    width: 3rem;
+    height: 3rem;
+    margin: 0 auto;
+    display: block;
 }
